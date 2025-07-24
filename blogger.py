@@ -1,18 +1,31 @@
 # blogger.py
 
-from google_auth import get_blogger_service
+import requests
+from config import BLOGGER_BLOG_ID, BLOGGER_OAUTH_TOKEN
 
-BLOG_ID = 'YOUR_BLOGGER_BLOG_ID_HERE'  # Replace with your Blogger blog ID
-
-def create_post(title, content, labels=None):
-    service = get_blogger_service()
-
-    body = {
-        'kind': 'blogger#post',
-        'title': title,
-        'content': content,
-        'labels': labels or []
+def create_post(title, content, image_url, button_url):
+    """Create a new Blogger post for a product."""
+    headers = {
+        "Authorization": f"Bearer {BLOGGER_OAUTH_TOKEN}",
+        "Content-Type": "application/json"
     }
-
-    post = service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
-    return post.get('url')
+    body = {
+        "kind": "blogger#post",
+        "blog": {"id": BLOGGER_BLOG_ID},
+        "title": title,
+        "content": f'''
+        <img src="{image_url}"><br>
+        <p>{content}</p>
+        <a href="{button_url}" style="display:inline-block;padding:10px 20px;background:#007bff;color:#fff;border-radius:5px;text-decoration:none;">View in Bot</a>
+        '''
+    }
+    response = requests.post(
+        f"https://www.googleapis.com/blogger/v3/blogs/{BLOGGER_BLOG_ID}/posts/",
+        headers=headers,
+        json=body
+    )
+    if response.status_code == 200 or response.status_code == 201:
+        post = response.json()
+        return post["url"]
+    else:
+        raise Exception(f"Blogger API error: {response.status_code} - {response.text}")
