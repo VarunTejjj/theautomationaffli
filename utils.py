@@ -1,27 +1,26 @@
 # utils.py
 
-ADSTERRA_SCRIPT = """
-<!-- Adsterra Ad Code -->
-<script type="text/javascript">
-   atOptions = {
-      'key' : 'your_adsterra_key_here',
-      'format' : 'iframe',
-      'height' : 250,
-      'width' : 300,
-      'params' : {}
-   };
-   document.write('<scr' + 'ipt type="text/javascript" src="https://www.profitabledisplaynetwork.com/' + atOptions.key + '/invoke.js"></scr' + 'ipt>');
-</script>
-"""
+import json
+import os
 
-def generate_post_content(product_link):
-    return f"""
-    <div>
-        <h2>🔥 Grab Your Product Now!</h2>
-        <p>Click the button below to access the original product link:</p>
-        <a href="{product_link}" target="_blank" style="padding: 10px 20px; background-color: #2196F3; color: white; text-decoration: none; border-radius: 5px;">View Product</a>
-        <br><br>
-        {ADSTERRA_SCRIPT}
-        <p>Stay tuned for more amazing deals!</p>
-    </div>
-    """
+PRODUCTS_FILE = "products.json"
+
+def load_products():
+    """Load all products from the local JSON database."""
+    if not os.path.isfile(PRODUCTS_FILE):
+        with open(PRODUCTS_FILE, "w") as f:
+            json.dump({}, f)
+    with open(PRODUCTS_FILE, "r") as f:
+        return json.load(f)
+
+def save_products(products):
+    """Save updated products to the local database."""
+    with open(PRODUCTS_FILE, "w") as f:
+        json.dump(products, f, indent=2)
+
+def get_next_product_id(products):
+    """Returns the next available product ID as a string."""
+    if products:
+        last_id = max(int(pid) for pid in products)
+        return str(last_id + 1)
+    return "10001"
