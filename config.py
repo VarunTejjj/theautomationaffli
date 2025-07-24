@@ -2,27 +2,21 @@
 
 BOT_TOKEN = "8301262035:AAFFdlOpGUJ2tSv84VGOmpv-I5X-EpltkSc"
 
-# Force Join Channel
-FORCE_CHANNEL_ID = -1002750966898
-FORCE_CHANNEL_LINK = "https://t.me/+yefc5k-8t1oxMDFl"
+# Telegram channel(s) where the bot listens
+SOURCE_CHANNEL_ID = -1002750966898  # Primary product posting channel
 
-# Public Product Channel (for posting updates if needed)
-PUBLIC_CHANNEL_ID = -1002800054599
-PUBLIC_CHANNEL_LINK = "https://t.me/anythinghere07"
+# Channels to force join before showing product info
+FORCE_JOIN_CHANNELS = [
+    -1002750966898,  # https://t.me/+yefc5k-8t1oxMDFl
+    -1002800054599   # https://t.me/anythinghere07
+]
 
-# Admin user ID (Only this ID can interact for product link)
-ADMIN_ID = 1831313735  # Replace with your Telegram user ID
+# Admin user ID
+ADMIN_ID = 1831313735
 
-# Adsterra script (this will be injected into Blogger post)
-ADSTERRA_SCRIPT = """
-<script type='text/javascript'>
-	atOptions = {
-		'key' : 'your-key-here',
-		'format' : 'iframe',
-		'height' : 250,
-		'width' : 300,
-		'params' : {}
-	};
-	document.write('<scr' + 'ipt type="text/javascript" src="https://www.profitabledisplaynetwork.com/your-script.js"></scr' + 'ipt>');
-</script>
-"""
+# Blogger API Credentials
+BLOGGER_OAUTH_TOKEN = "ya29.a0AS3H6NwJ2QUJLYDs-bFNqVvPcMOQZNaMirg4gZi1fSy3wPr-zIEKSk9ipYpO3fdP8Iik5LnUaJ43O02b9CwWDQnnMEQLv_zZv95iF9547NwdClXjruzrLLKFd-zL2I8m0MMPzgOE7Dbk9IYwMq-KI1kKWmsBDjntE6TOjsHaCgYKAc0SARcSFQHGX2Mifbyz9MGpjtpT2uxlh8qo-Q0175"
+BLOGGER_BLOG_ID = "8000505142904290143"
+
+# Base bot username (use your bot username without @)
+BOT_USERNAME = "sovereigndealbot"  # Replace with your actual bot username
