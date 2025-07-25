@@ -1,3 +1,5 @@
+# bot.py
+
 import telebot
 from telebot import types
 from config import BOT_TOKEN, SOURCE_CHANNEL_ID, FORCE_JOIN_CHANNELS, ADMIN_ID, BOT_USERNAME
@@ -113,19 +115,19 @@ def on_start_command(message):
 
     # Always check force-join channels on every /start
     not_joined = []
-    for cid in FORCE_JOIN_CHANNELS:
+    for channel in FORCE_JOIN_CHANNELS:
+        cid = channel["id"]
         try:
             member_status = bot.get_chat_member(cid, user_id).status
             if member_status not in ("member", "administrator", "creator"):
-                not_joined.append(cid)
+                not_joined.append(channel)
         except Exception:
-            not_joined.append(cid)
+            not_joined.append(channel)
 
     if not_joined:
         markup = types.InlineKeyboardMarkup()
-        for cid in not_joined:
-            channel_link = f"https://t.me/c/{str(cid)[4:]}"  # Adjust for private channels if needed
-            markup.add(types.InlineKeyboardButton("Join Channel", url=channel_link))
+        for channel in not_joined:
+            markup.add(types.InlineKeyboardButton("Join Channel", url=channel["invite_link"]))
         markup.add(types.InlineKeyboardButton("✅ I've Joined", callback_data="check_joined"))
         bot.send_message(
             message.chat.id,
@@ -158,13 +160,14 @@ def on_start_command(message):
 def on_check_joined(call):
     user_id = call.from_user.id
     not_joined_channels = []
-    for cid in FORCE_JOIN_CHANNELS:
+    for channel in FORCE_JOIN_CHANNELS:
+        cid = channel["id"]
         try:
             member_status = bot.get_chat_member(cid, user_id).status
             if member_status not in ("member", "administrator", "creator"):
-                not_joined_channels.append(cid)
+                not_joined_channels.append(channel)
         except Exception:
-            not_joined_channels.append(cid)
+            not_joined_channels.append(channel)
 
     if not not_joined_channels:
         bot.send_message(call.message.chat.id, "Thanks for joining! Please /start the bot again with your product link.")
