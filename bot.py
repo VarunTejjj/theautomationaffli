@@ -32,12 +32,13 @@ threading.Thread(target=run_web_server, daemon=True).start()
 
 
 # Step 1: Detect new product post in the channel
-@bot.channel_post_handler(func=lambda msg: True)
-def debug_all_channel_posts(msg):
-    print(f"Received post in chat {msg.chat.id} with message_id {msg.message_id}")
-    if msg.chat.id == SOURCE_CHANNEL_ID:
-        # Existing handling logic here
-        bot.send_message(ADMIN_ID, "New product post detected.\nPlease reply with the original product affiliate link.")
+@bot.channel_post_handler(content_types=['text', 'photo'])
+def on_new_channel_post(msg):
+    if msg.text or msg.caption or msg.photo:
+        bot.send_message(
+            ADMIN_ID,
+            "New product post detected.\nPlease reply here with the original product affiliate link."
+        )
         pending_links[ADMIN_ID] = msg
 
 # Step 2: Receive affiliate link from admin and process product
