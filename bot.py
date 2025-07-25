@@ -111,48 +111,38 @@ def on_receive_affiliate_link(message):
 # Step 3: Handle /start PRODUCT_ID command for users
 @bot.message_handler(commands=["start"])
 def on_start_command(message):
+    user_id = message.from_user.id
+
+    # Always check force-join channels on every /start
+    not_joined = []
+    for cid in FORCE_JOIN_CHANNELS:
+        try:
+            member_status = bot.get_chat_member(cid, user_id).status
+            if member_status not in ("member", "administrator", "creator"):
+                not_joined.append(cid)
+        except Exception:
+            not_joined.append(cid)
+
+    if not_joined:
+        markup = types.InlineKeyboardMarkup()
+        for cid in not_joined:
+            channel_link = f"https://t.me/c/{str(cid)[4:]}"  # Adjust for your channels, consider private links
+            markup.add(types.InlineKeyboardButton("Join Channel", url=channel_link))
+        markup.add(types.InlineKeyboardButton("✅ I've Joined", callback_data="check_joined"))
+        bot.send_message(
+            message.chat.id,
+            "Please join the required channels first to use this bot.",
+            reply_markup=markup
+        )
+        return
+
+    # Continue handling usual /start arguments or default welcome message here
     args = message.text.split()
     if len(args) == 2:
-        product_id = args[1]
-        user_id = message.from_user.id
-
-        not_joined_channels = []
-        for cid in FORCE_JOIN_CHANNELS:
-            try:
-                member_status = bot.get_chat_member(cid, user_id).status
-                if member_status not in ("member", "administrator", "creator"):
-                    not_joined_channels.append(cid)
-            except Exception:
-                not_joined_channels.append(cid)
-
-        if not_joined_channels:
-            markup = types.InlineKeyboardMarkup()
-            for cid in not_joined_channels:
-                # NOTE: t.me/c/ links don't work for private channels; replace with proper invite links if any
-                channel_link = f"https://t.me/c/{str(cid)[4:]}"
-                markup.add(types.InlineKeyboardButton("Join Channel", url=channel_link))
-            markup.add(types.InlineKeyboardButton("✅ I've Joined", callback_data="check_joined"))
-            bot.send_message(
-                message.chat.id,
-                "You must join the required channel(s) to access this product.\nJoin and then click below.",
-                reply_markup=markup
-            )
-            return
-
-        product = products.get(product_id)
-        if product:
-            markup = types.InlineKeyboardMarkup()
-            markup.add(types.InlineKeyboardButton("🔗 Buy Now", url=product.get("affiliate_link", "#")))
-            bot.send_message(
-                message.chat.id,
-                f"<b>{product['product_name']}</b>\n\n{product.get('caption', '')}",
-                reply_markup=markup,
-                parse_mode="HTML"
-            )
-        else:
-            bot.send_message(message.chat.id, "Sorry, product not found.")
+        # Existing product start flow...
+        ...
     else:
-        bot.send_message(message.chat.id, "Welcome! Tap a product link to start.")
+        bot.send_message(message.chat.id, "Welcome! Send me a product link to get started.")
 
 
 # Step 4: Callback query handler for join confirmation button
