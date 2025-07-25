@@ -6,9 +6,30 @@ from config import BOT_TOKEN, SOURCE_CHANNEL_ID, FORCE_JOIN_CHANNELS, ADMIN_ID, 
 from utils import load_products, save_products, get_next_product_id
 from blogger import create_post
 
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import os
+
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 products = load_products()
 pending_links = {}  # Track admin posts awaiting affiliate link
+
+# --- Simple HTTP server to satisfy Render's port detection ---
+
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running.")
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))  # Render sets PORT env var
+    server = HTTPServer(("", port), SimpleHandler)
+    server.serve_forever()
+
+threading.Thread(target=run_web_server, daemon=True).start()
+
+# --- Telegram bot handlers below ---
 
 # Step 1: Detect product post in source channel
 @bot.channel_post_handler(func=lambda msg: msg.chat.id == SOURCE_CHANNEL_ID)
@@ -64,7 +85,6 @@ def receive_original_link(message):
     try:
         bot.delete_message(SOURCE_CHANNEL_ID, original_msg.message_id)
     except Exception as e:
-        # May fail if bot lacks rights or post already deleted
         print(f"Warning: Could not delete message: {e}")
 
     # Repost with new caption and inline button
@@ -109,15 +129,12 @@ def handle_start(message):
                 if member.status not in ("member", "administrator", "creator"):
                     not_joined.append(cid)
             except Exception:
-                # Could mean user not found or bot lacks permissions
                 not_joined.append(cid)
 
         if not_joined:
             markup = types.InlineKeyboardMarkup()
             for cid in not_joined:
-                # Telegram public channel links workaround (chat invite links provided)
-                # Use the known links from config or user must join manually.
-                url = f"https://t.me/c/{str(cid)[4:]}"  # may not work if channel is private
+                url = f"https://t.me/c/{str(cid)[4:]}"  # May fail if private channel
                 markup.add(types.InlineKeyboardButton("Join Channel", url=url))
             markup.add(types.InlineKeyboardButton("✅ I've Joined", callback_data="check_joined"))
             bot.send_message(message.chat.id,
@@ -128,7 +145,6 @@ def handle_start(message):
         product = products.get(pid)
         if product:
             markup = types.InlineKeyboardMarkup()
-            # Buy Now button with affiliate link
             markup.add(types.InlineKeyboardButton("🔗 Buy Now", url=product.get("affiliate_link", "#")))
             caption = f"<b>{product['product_name']}</b>\n\n{product.get('caption', '')}"
             bot.send_message(message.chat.id, caption, reply_markup=markup, parse_mode="HTML")
