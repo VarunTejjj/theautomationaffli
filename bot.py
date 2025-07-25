@@ -49,34 +49,72 @@ def on_receive_affiliate_link(message):
     product_name = original_msg.caption.split("\n")[0] if original_msg.caption else "Product"
     caption_text = original_msg.caption if original_msg.caption else ""
 
-    image_url = ""
-    if original_msg.photo:
-    file_id = original_msg.photo[-1].file_id
-    file_info = bot.get_file(file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
-
-    # Save temporarily in memory or disk
-    from io import BytesIO
-    photo_file = BytesIO(downloaded_file)
-    photo_file.name = "image.jpg"  # Telegram expects file-like object with a name
+    product_id = get_next_product_id(products)
+    bot_start_link = f"https://t.me/{BOT_USERNAME}?start={product_id}"
 
     try:
-        bot.send_photo(
+        post_url = create_post(product_name, caption_text, "", bot_start_link)
+    except Exception as e:
+        bot.send_message(ADMIN_ID, f"Failed to create Blogger post:\n{e}")
+        return
+
+    # Prepare the Inline Keyboard markup
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🛍 View Product", url=post_url))
+
+    repost_caption = caption_text if caption_text else ""
+
+    image_url = ""
+    photo_file = None
+    if original_msg.photo:
+        file_id = original_msg.photo[-1].file_id
+        file_info = bot.get_file(file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+
+        from io import BytesIO
+        photo_file = BytesIO(downloaded_file)
+        photo_file.name = "image.jpg"  # Telegram expects file-like object to have name attribute
+
+        image_url = None  # Since we'll upload file directly, no need for image_url here
+    else:
+        photo_file = None
+
+    # Save the product info with image_url key as empty string or None (since photo_file is used)
+    products[product_id] = {
+        "product_name": product_name,
+        "image_url": "",  # or None, because we upload directly
+        "bot_start_link": bot_start_link,
+        "blogger_post_url": post_url,
+        "channel_message_id": original_msg.message_id,
+        "caption": caption_text,
+        "affiliate_link": affiliate_link
+    }
+    save_products(products)
+
+    try:
+        bot.delete_message(SOURCE_CHANNEL_ID, original_msg.message_id)
+    except Exception:
+        pass  # May fail if insufficient rights or message already deleted
+
+    if photo_file:
+        try:
+            photo_file.seek(0)
+            bot.send_photo(
+                SOURCE_CHANNEL_ID,
+                photo=photo_file,
+                caption=repost_caption,
+                reply_markup=markup,
+                parse_mode="HTML" if repost_caption else None
+            )
+        except Exception as e:
+            bot.send_message(ADMIN_ID, f"Failed to repost image: {e}")
+    else:
+        bot.send_message(
             SOURCE_CHANNEL_ID,
-            photo=photo_file,
-            caption=repost_caption,
+            repost_caption or "Product",
             reply_markup=markup,
             parse_mode="HTML" if repost_caption else None
         )
-    except Exception as e:
-        bot.send_message(ADMIN_ID, f"Failed to repost image: {e}")
-else:
-    bot.send_message(
-        SOURCE_CHANNEL_ID,
-        repost_caption or "Product",
-        reply_markup=markup,
-        parse_mode="HTML" if repost_caption else None
-    )
 
 # Step 3: Handle /start command for all users, enforce force join
 @bot.message_handler(commands=["start"])
