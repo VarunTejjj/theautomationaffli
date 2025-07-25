@@ -15,7 +15,6 @@ bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 products = load_products()
 pending_links = {}  # Admin message awaiting affiliate link
 
-
 # Simple HTTP server for Render port detection
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -52,58 +51,32 @@ def on_receive_affiliate_link(message):
 
     image_url = ""
     if original_msg.photo:
-        file_id = original_msg.photo[-1].file_id  # best quality
-        file_info = bot.get_file(file_id)
-        image_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
+    file_id = original_msg.photo[-1].file_id
+    file_info = bot.get_file(file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
 
-    product_id = get_next_product_id(products)
-    bot_start_link = f"https://t.me/{BOT_USERNAME}?start={product_id}"
-
-    try:
-        post_url = create_post(product_name, caption_text, image_url, bot_start_link)
-    except Exception as e:
-        bot.send_message(ADMIN_ID, f"Failed to create Blogger post:\n{e}")
-        return
-
-    products[product_id] = {
-        "product_name": product_name,
-        "image_url": image_url,
-        "bot_start_link": bot_start_link,
-        "blogger_post_url": post_url,
-        "channel_message_id": original_msg.message_id,
-        "caption": caption_text,
-        "affiliate_link": affiliate_link
-    }
-    save_products(products)
+    # Save temporarily in memory or disk
+    from io import BytesIO
+    photo_file = BytesIO(downloaded_file)
+    photo_file.name = "image.jpg"  # Telegram expects file-like object with a name
 
     try:
-        bot.delete_message(SOURCE_CHANNEL_ID, original_msg.message_id)
-    except Exception:
-        pass  # May fail if insufficient rights or message already deleted
-
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🛍 View Product", url=post_url))
-
-    repost_caption = caption_text if caption_text else ""
-
-    if image_url:
-        try:
-            bot.send_photo(
-                SOURCE_CHANNEL_ID,
-                photo=image_url,
-                caption=repost_caption,
-                reply_markup=markup,
-                parse_mode="HTML" if repost_caption else None
-            )
-        except Exception as e:
-            bot.send_message(ADMIN_ID, f"Failed to repost image: {e}")
-    else:
-        bot.send_message(
+        bot.send_photo(
             SOURCE_CHANNEL_ID,
-            repost_caption or "Product",
+            photo=photo_file,
+            caption=repost_caption,
             reply_markup=markup,
             parse_mode="HTML" if repost_caption else None
         )
+    except Exception as e:
+        bot.send_message(ADMIN_ID, f"Failed to repost image: {e}")
+else:
+    bot.send_message(
+        SOURCE_CHANNEL_ID,
+        repost_caption or "Product",
+        reply_markup=markup,
+        parse_mode="HTML" if repost_caption else None
+    )
 
 # Step 3: Handle /start command for all users, enforce force join
 @bot.message_handler(commands=["start"])
