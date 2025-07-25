@@ -2,16 +2,17 @@
 
 BOT_TOKEN = "8301262035:AAFFdlOpGUJ2tSv84VGOmpv-I5X-EpltkSc"
 
-# The Telegram channel where products are posted
+# Telegram channel where products are posted
 SOURCE_CHANNEL_ID = -1002750966898
 
 # Channels/groups users must join before accessing product info
+# Now stores both 'id' and 'invite_link' for private/public channels
 FORCE_JOIN_CHANNELS = [
-    -1002750966898,  # your first channel
-    -1002800054599   # your second channel
+    {"id": -1002750966898, "invite_link": "https://t.me/+yefc5k-8t1oxMDFl"},
+    {"id": -1002800054599, "invite_link": "https://t.me/anythinghere07"}
 ]
 
-# Admin Telegram user ID who approves products
+# Admin Telegram user ID
 ADMIN_ID = 1831313735
 
 # Blogger API Credentials
