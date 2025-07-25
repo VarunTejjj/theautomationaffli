@@ -9,13 +9,14 @@ from blogger import create_post
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
+import sys
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 products = load_products()
-pending_links = {}  # Track admin posts awaiting affiliate link
+pending_links = {}  # Admin message awaiting affiliate link
 
-# --- Simple HTTP server to satisfy Render's port detection ---
 
+# Simple HTTP server for Render port detection
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -23,71 +24,64 @@ class SimpleHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is running.")
 
 def run_web_server():
-    port = int(os.environ.get("PORT", 10000))  # Render sets PORT env var
+    port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("", port), SimpleHandler)
     server.serve_forever()
 
 threading.Thread(target=run_web_server, daemon=True).start()
 
-# --- Telegram bot handlers below ---
 
-# Step 1: Detect product post in source channel
+# Step 1: Detect new product post in the channel
 @bot.channel_post_handler(func=lambda msg: msg.chat.id == SOURCE_CHANNEL_ID)
-def handle_new_product_post(msg):
+def on_new_channel_post(msg):
     if msg.text or msg.caption or msg.photo:
         bot.send_message(
             ADMIN_ID,
-            "Detected new product post.\nPlease reply with the original product (affiliate) link."
+            "New product post detected.\nPlease reply here with the original product affiliate link."
         )
         pending_links[ADMIN_ID] = msg
 
-# Step 2: Receive original affiliate link from admin
-@bot.message_handler(func=lambda m: m.chat.id == ADMIN_ID and ADMIN_ID in pending_links)
-def receive_original_link(message):
-    original_msg = pending_links.pop(ADMIN_ID)
-    product_link = message.text.strip()
 
-    # Extract product name and caption
+# Step 2: Receive affiliate link from admin and process product
+@bot.message_handler(func=lambda m: m.chat.id == ADMIN_ID and ADMIN_ID in pending_links)
+def on_receive_affiliate_link(message):
+    original_msg = pending_links.pop(ADMIN_ID)
+    affiliate_link = message.text.strip()
+
     product_name = original_msg.caption.split("\n")[0] if original_msg.caption else "Product"
     caption_text = original_msg.caption if original_msg.caption else ""
 
-    # Extract image URL if photo present
     image_url = ""
     if original_msg.photo:
-        file_id = original_msg.photo[-1].file_id  # Get highest resolution photo
+        file_id = original_msg.photo[-1].file_id  # best quality
         file_info = bot.get_file(file_id)
         image_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
 
-    # Generate next product ID
-    next_pid = get_next_product_id(products)
-    bot_start_link = f"https://t.me/{BOT_USERNAME}?start={next_pid}"
+    product_id = get_next_product_id(products)
+    bot_start_link = f"https://t.me/{BOT_USERNAME}?start={product_id}"
 
     try:
-        # Create blogger post
         post_url = create_post(product_name, caption_text, image_url, bot_start_link)
     except Exception as e:
-        bot.send_message(ADMIN_ID, f"Error creating Blogger post:\n{e}")
+        bot.send_message(ADMIN_ID, f"Failed to create Blogger post:\n{e}")
         return
 
-    # Save product info
-    products[next_pid] = {
+    products[product_id] = {
         "product_name": product_name,
         "image_url": image_url,
         "bot_start_link": bot_start_link,
         "blogger_post_url": post_url,
         "channel_message_id": original_msg.message_id,
         "caption": caption_text,
-        "affiliate_link": product_link  # Storing the original affiliate link for buy button
+        "affiliate_link": affiliate_link
     }
     save_products(products)
 
-    # Delete original channel post
     try:
         bot.delete_message(SOURCE_CHANNEL_ID, original_msg.message_id)
-    except Exception as e:
-        print(f"Warning: Could not delete message: {e}")
+    except Exception:
+        pass  # May fail if insufficient rights or message already deleted
 
-    # Repost with new caption and inline button
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🛍 View Product", url=post_url))
 
@@ -113,64 +107,77 @@ def receive_original_link(message):
             parse_mode="HTML"
         )
 
-# Step 3: Handle /start command with product ID
+
+# Step 3: Handle /start PRODUCT_ID command for users
 @bot.message_handler(commands=["start"])
-def handle_start(message):
+def on_start_command(message):
     args = message.text.split()
     if len(args) == 2:
-        pid = args[1]
+        product_id = args[1]
         user_id = message.from_user.id
 
-        # Check if user joined all channels in FORCE_JOIN_CHANNELS
-        not_joined = []
+        not_joined_channels = []
         for cid in FORCE_JOIN_CHANNELS:
             try:
-                member = bot.get_chat_member(cid, user_id)
-                if member.status not in ("member", "administrator", "creator"):
-                    not_joined.append(cid)
+                member_status = bot.get_chat_member(cid, user_id).status
+                if member_status not in ("member", "administrator", "creator"):
+                    not_joined_channels.append(cid)
             except Exception:
-                not_joined.append(cid)
+                not_joined_channels.append(cid)
 
-        if not_joined:
+        if not_joined_channels:
             markup = types.InlineKeyboardMarkup()
-            for cid in not_joined:
-                url = f"https://t.me/c/{str(cid)[4:]}"  # May fail if private channel
-                markup.add(types.InlineKeyboardButton("Join Channel", url=url))
+            for cid in not_joined_channels:
+                # NOTE: t.me/c/ links don't work for private channels; replace with proper invite links if any
+                channel_link = f"https://t.me/c/{str(cid)[4:]}"
+                markup.add(types.InlineKeyboardButton("Join Channel", url=channel_link))
             markup.add(types.InlineKeyboardButton("✅ I've Joined", callback_data="check_joined"))
-            bot.send_message(message.chat.id,
-                             "Please join all required channels to access this product:",
-                             reply_markup=markup)
+            bot.send_message(
+                message.chat.id,
+                "You must join the required channel(s) to access this product.\nJoin and then click below.",
+                reply_markup=markup
+            )
             return
 
-        product = products.get(pid)
+        product = products.get(product_id)
         if product:
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton("🔗 Buy Now", url=product.get("affiliate_link", "#")))
-            caption = f"<b>{product['product_name']}</b>\n\n{product.get('caption', '')}"
-            bot.send_message(message.chat.id, caption, reply_markup=markup, parse_mode="HTML")
+            bot.send_message(
+                message.chat.id,
+                f"<b>{product['product_name']}</b>\n\n{product.get('caption', '')}",
+                reply_markup=markup,
+                parse_mode="HTML"
+            )
         else:
-            bot.send_message(message.chat.id, "Product not found or expired.")
+            bot.send_message(message.chat.id, "Sorry, product not found.")
     else:
-        bot.send_message(message.chat.id, "Welcome! Use this bot after clicking a product link.")
+        bot.send_message(message.chat.id, "Welcome! Tap a product link to start.")
 
-# Step 4: Callback for "I've Joined" button
+
+# Step 4: Callback query handler for join confirmation button
 @bot.callback_query_handler(func=lambda call: call.data == "check_joined")
-def check_joined_callback(call):
+def on_check_joined(call):
     user_id = call.from_user.id
-    not_joined = []
+    not_joined_channels = []
     for cid in FORCE_JOIN_CHANNELS:
         try:
-            member = bot.get_chat_member(cid, user_id)
-            if member.status not in ("member", "administrator", "creator"):
-                not_joined.append(cid)
+            member_status = bot.get_chat_member(cid, user_id).status
+            if member_status not in ("member", "administrator", "creator"):
+                not_joined_channels.append(cid)
         except Exception:
-            not_joined.append(cid)
+            not_joined_channels.append(cid)
 
-    if not not_joined:
-        bot.send_message(call.message.chat.id, "Great! Now please /start the bot again with your product link.")
+    if not not_joined_channels:
+        bot.send_message(call.message.chat.id, "Thanks for joining! Please /start the bot again with your product link.")
     else:
-        bot.answer_callback_query(call.id, "Please join all channels first to continue.")
+        bot.answer_callback_query(call.id, "Please join all required channels first.")
+
 
 if __name__ == "__main__":
     print("Bot started...")
-    bot.infinity_polling()
+    try:
+        bot.infinity_polling()
+    except Exception as e:
+        print(f"Bot polling stopped due to error: {e}")
+        sys.exit(1)
