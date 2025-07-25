@@ -1,12 +1,29 @@
 # blogger.py
 
 import requests
-from config import BLOGGER_BLOG_ID, BLOGGER_OAUTH_TOKEN
+from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, BLOGGER_BLOG_ID
+
+def refresh_access_token():
+    """Use the refresh token to get a new access token."""
+    url = "https://oauth2.googleapis.com/token"
+    data = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "refresh_token": GOOGLE_REFRESH_TOKEN,
+        "grant_type": "refresh_token",
+    }
+    response = requests.post(url, data=data)
+    if response.status_code == 200:
+        tokens = response.json()
+        return tokens["access_token"]
+    else:
+        raise Exception(f"Failed to refresh access token: {response.text}")
 
 def create_post(title, content, image_url, button_url):
-    """Create a new blog post on Blogger."""
+    """Create a new blog post on Blogger using a fresh access token."""
+    access_token = refresh_access_token()
     headers = {
-        "Authorization": f"Bearer {BLOGGER_OAUTH_TOKEN}",
+        "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     }
     blog_post = {
