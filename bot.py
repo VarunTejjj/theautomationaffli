@@ -84,17 +84,19 @@ def on_receive_affiliate_link(message):
     markup = types.InlineKeyboardMarkup()
 markup.add(types.InlineKeyboardButton("🛍 View Product", url=post_url))
 
-# Use original caption only, no added blog or bot links
 repost_caption = caption_text if caption_text else ""
 
 if image_url:
-    bot.send_photo(
-        SOURCE_CHANNEL_ID,
-        photo=image_url,
-        caption=repost_caption,
-        reply_markup=markup,
-        parse_mode="HTML" if repost_caption else None
-    )
+    try:
+        bot.send_photo(
+            SOURCE_CHANNEL_ID,
+            photo=image_url,
+            caption=repost_caption,
+            reply_markup=markup,
+            parse_mode="HTML" if repost_caption else None
+        )
+    except Exception as e:
+        bot.send_message(ADMIN_ID, f"Failed to repost image: {e}")
 else:
     bot.send_message(
         SOURCE_CHANNEL_ID,
