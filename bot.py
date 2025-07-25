@@ -5,12 +5,6 @@ from telebot import types
 from config import BOT_TOKEN, SOURCE_CHANNEL_ID, FORCE_JOIN_CHANNELS, ADMIN_ID, BOT_USERNAME
 from utils import load_products, save_products, get_next_product_id
 from blogger import create_post
-from blogger import notify_token_refresh
-
-def admin_token_refresh_notify():
-    bot.send_message(ADMIN_ID, "🔄 Blogger access token has been refreshed successfully.")
-
-notify_token_refresh = admin_token_refresh_notify
 
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
