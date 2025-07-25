@@ -19,4 +19,4 @@ BLOGGER_OAUTH_TOKEN = "ya29.a0AS3H6NwJ2QUJLYDs-bFNqVvPcMOQZNaMirg4gZi1fSy3wPr-zI
 BLOGGER_BLOG_ID = "8000505142904290143"
 
 # Your bot's username without '@'
-BOT_USERNAME = "yourbot"
+BOT_USERNAME = "sovereigndealbot"
