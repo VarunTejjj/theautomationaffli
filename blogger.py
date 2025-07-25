@@ -4,15 +4,22 @@ import time
 import requests
 from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, BLOGGER_BLOG_ID
 
+# To enable admin notification, import below in your bot.py and assign to this after bot is initialized:
+notify_token_refresh = None
+
 _cached_token = None
 _token_acquired_time = 0
-_TOKEN_EXPIRE_INTERVAL = 40 * 60  # 40 minutes in seconds
+_TOKEN_EXPIRE_INTERVAL = 40 * 60  # 40 minutes (in seconds)
+
 
 def refresh_access_token():
+    """
+    Refresh and cache the access token using the refresh token, auto-refreshing every 40 minutes.
+    If notify_token_refresh is set, it will be called each time a new token is acquired (e.g. to message admin).
+    """
     global _cached_token, _token_acquired_time
     current_time = time.time()
     if _cached_token and (current_time - _token_acquired_time) < _TOKEN_EXPIRE_INTERVAL:
-        # Return cached token if still valid within 40 minutes window
         return _cached_token
 
     url = "https://oauth2.googleapis.com/token"
@@ -28,12 +35,22 @@ def refresh_access_token():
         _cached_token = tokens["access_token"]
         _token_acquired_time = current_time
         print(f"Access token refreshed at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(current_time))}")
+        if notify_token_refresh:
+            try:
+                notify_token_refresh()
+            except Exception:
+                # Silently ignore notification errors to avoid breaking refresh
+                pass
         return _cached_token
     else:
         raise Exception(f"Failed to refresh access token: {response.text}")
 
+
 def create_post(title, content, image_url, button_url):
-    """Create a new blog post on Blogger, refreshing OAuth token automatically."""
+    """
+    Create a new blog post on Blogger, using a fresh access token
+    and sending admin notification when token is refreshed.
+    """
     access_token = refresh_access_token()
     headers = {
         "Authorization": f"Bearer {access_token}",
