@@ -1,5 +1,3 @@
-# bot.py
-
 import telebot
 from telebot import types
 from config import BOT_TOKEN, SOURCE_CHANNEL_ID, FORCE_JOIN_CHANNELS, ADMIN_ID, BOT_USERNAME
@@ -108,7 +106,7 @@ def on_receive_affiliate_link(message):
         )
 
 
-# Step 3: Handle /start PRODUCT_ID command for users
+# Step 3: Handle /start command for all users, enforce force join
 @bot.message_handler(commands=["start"])
 def on_start_command(message):
     user_id = message.from_user.id
@@ -126,7 +124,7 @@ def on_start_command(message):
     if not_joined:
         markup = types.InlineKeyboardMarkup()
         for cid in not_joined:
-            channel_link = f"https://t.me/c/{str(cid)[4:]}"  # Adjust for your channels, consider private links
+            channel_link = f"https://t.me/c/{str(cid)[4:]}"  # Adjust for private channels if needed
             markup.add(types.InlineKeyboardButton("Join Channel", url=channel_link))
         markup.add(types.InlineKeyboardButton("✅ I've Joined", callback_data="check_joined"))
         bot.send_message(
@@ -136,11 +134,21 @@ def on_start_command(message):
         )
         return
 
-    # Continue handling usual /start arguments or default welcome message here
     args = message.text.split()
     if len(args) == 2:
-        # Existing product start flow...
-        ...
+        product_id = args[1]
+        product = products.get(product_id)
+        if product:
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("🔗 Buy Now", url=product.get("affiliate_link", "#")))
+            bot.send_message(
+                message.chat.id,
+                f"<b>{product['product_name']}</b>\n\n{product.get('caption', '')}",
+                reply_markup=markup,
+                parse_mode="HTML"
+            )
+        else:
+            bot.send_message(message.chat.id, "Sorry, product not found.")
     else:
         bot.send_message(message.chat.id, "Welcome! Send me a product link to get started.")
 
