@@ -82,28 +82,28 @@ def on_receive_affiliate_link(message):
         pass  # May fail if insufficient rights or message already deleted
 
     markup = types.InlineKeyboardMarkup()
-markup.add(types.InlineKeyboardButton("🛍 View Product", url=post_url))
+    markup.add(types.InlineKeyboardButton("🛍 View Product", url=post_url))
 
-repost_caption = caption_text if caption_text else ""
+    repost_caption = caption_text if caption_text else ""
 
-if image_url:
-    try:
-        bot.send_photo(
+    if image_url:
+        try:
+            bot.send_photo(
+                SOURCE_CHANNEL_ID,
+                photo=image_url,
+                caption=repost_caption,
+                reply_markup=markup,
+                parse_mode="HTML" if repost_caption else None
+            )
+        except Exception as e:
+            bot.send_message(ADMIN_ID, f"Failed to repost image: {e}")
+    else:
+        bot.send_message(
             SOURCE_CHANNEL_ID,
-            photo=image_url,
-            caption=repost_caption,
+            repost_caption or "Product",
             reply_markup=markup,
             parse_mode="HTML" if repost_caption else None
         )
-    except Exception as e:
-        bot.send_message(ADMIN_ID, f"Failed to repost image: {e}")
-else:
-    bot.send_message(
-        SOURCE_CHANNEL_ID,
-        repost_caption or "Product",
-        reply_markup=markup,
-        parse_mode="HTML" if repost_caption else None
-    )
 
 # Step 3: Handle /start command for all users, enforce force join
 @bot.message_handler(commands=["start"])
